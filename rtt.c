@@ -4,72 +4,28 @@
 
 
 #pragma comment(lib,"Ws2_32.lib")
+#pragma comment(lib,"winmm.lib")
 
-
-#if defined(_MSC_VER) || defined(_MSC_EXTENSIONS)
-#define DELTA_EPOCH_IN_MICROSECS  11644473600000000Ui64
-#else
-#define DELTA_EPOCH_IN_MICROSECS  11644473600000000ULL
-#endif
-
-
-extern void dump_packet(void *, size_t len);
-SOCKET  s;
+static SOCKET  s;
 typedef struct {
 	DWORD type;
 	DWORD reply;
-	struct timeval t;
+	DWORD t;
 	long delay;
 }MEMO;
-MEMO memo[1024];
+static MEMO memo[1024];
+static int pattern=0;
 
-
-
-long difft(struct timeval *t1, struct timeval *t2)
-{
-	long d = 0;
-	d = (t2->tv_sec - t1->tv_sec) * 1000000;
-	if (t1->tv_usec > t2->tv_usec) {
-		d -= (t1->tv_usec - t2->tv_usec);
-	}
-	else {
-		d += (t2->tv_usec - t1->tv_usec);
-	}
-	return d;
-}
-
-DWORD gettimeofday(struct timeval *tv, struct timezone *tz)
-{
-	FILETIME ft;
-	unsigned __int64 tmpres = 0;
-	static int tzflag;
-
-	if (NULL != tv)
-	{
-		GetSystemTimeAsFileTime(&ft);
-
-		tmpres |= ft.dwHighDateTime;
-		tmpres <<= 32;
-		tmpres |= ft.dwLowDateTime;
-
-		/*converting file time to unix epoch*/
-		tmpres -= DELTA_EPOCH_IN_MICROSECS;
-		tmpres /= 10;  /*convert into microseconds*/
-		tv->tv_sec = (long)(tmpres / 1000000UL);
-		tv->tv_usec = (long)(tmpres % 1000000UL);
-	}
-	return 0;
-}
 
 
 DWORD check_packet(char *b, DWORD l)
 {
 	DWORD *ptr;
 	DWORD n, sqc;
-	struct timeval t;
+	DWORD t;
 	DWORD timer;
-	long d;
-	gettimeofday(&t, NULL);
+	DWORD d;
+	t=timeGetTime();
 	ptr = (DWORD *)b;
 	if (123 != ntohl(*ptr)) {
 		printf("MAGIC error =%ud\n", ntohl(*ptr));
@@ -86,10 +42,10 @@ DWORD check_packet(char *b, DWORD l)
 			printf("type unmatch\n");
 			return -1;
 		}
-		d = difft(&memo[sqc].t, &t);
+		d = t- memo[sqc].t;
 		memo[sqc].delay = d;
 		memo[sqc].reply = 1;
-		printf("recv n=%-6u sqc=%-6u delay=%-8ld\n", n, sqc, d / 1000);
+		printf("recv n=%-6u sqc=%-6u delay=%-8u\n", n, sqc, d);
 		return n;
 	}
 	if (n == 7) {
@@ -128,7 +84,6 @@ void send_data(DWORD type, DWORD len)
 	char			buff[2048];
 	static int sqc = 0;
 	DWORD *ptr;
-	struct timeval t;
 
 	memset(buff, 0, 2048);
 	ptr = (DWORD *)buff;
@@ -137,8 +92,7 @@ void send_data(DWORD type, DWORD len)
 	*ptr = htonl(type);
 	ptr++;
 	*ptr = htonl(sqc);
-	gettimeofday(&t, NULL);
-	memo[sqc].t = t;
+	memo[sqc].t =timeGetTime();
 	memo[sqc].type = type;
 	sendPacket(s, buff, len);
 	sqc++;
@@ -146,13 +100,13 @@ void send_data(DWORD type, DWORD len)
 
 void pattern1(void) {
 	int i;
-
+	printf("íÜî≤ÇØ5ïbíÜâ∫ÇËéÛêMÇ†ÇË\n");
 	send_data(7, 32);//START
 	for (i = 0; i<10; i++) {
 		Sleep(100);
 		send_data(4, 64);
 	}
-	send_data(2,64);
+	send_data(2,64);//â∫ÇËéwé¶
 	Sleep(5000);
 	send_data(5, 64);
 	for (i = 0; i<10; i++) {
@@ -163,7 +117,7 @@ void pattern1(void) {
 }
 void pattern2(void) {
 	int i;
-
+printf("íÜî≤ÇØ5ïbíÜâ∫ÇËéÛêMÇ»Çµ\n");
 	send_data(7, 32);//START
 	for (i = 0; i<10; i++) {
 		Sleep(100);
@@ -180,12 +134,8 @@ void pattern2(void) {
 
 void pattern3(void) {
 	int i;
-
+	printf("íÜî≤ÇØÇ»ÇµÅ@100É~Éäïbä‘äu\n");
 	send_data(7, 32);//START
-	for (i = 0; i<50; i++) {
-		Sleep(100);
-		send_data(4, 64);
-	}
 	for (i = 0; i<50; i++) {
 		Sleep(100);
 		send_data(4, 64);
@@ -196,7 +146,9 @@ void pattern3(void) {
 void *sending_thread(void *p)
 {
 	Sleep(1000);
-	pattern3();
+	if(pattern==1) pattern1();
+	if(pattern==2) pattern2();
+	if(pattern==3) pattern3();
 	return NULL;
 }
 
@@ -214,20 +166,28 @@ int main(int argc, char **argv)
 	struct timeval tv;
 	WSADATA wsaData;
 	DWORD timer;
+	
 	for (i = 0; i<128; i++) {
 		memset(&memo[i], 0, sizeof(MEMO));
 	}
 	strcpy(ip, "www.olt.link");
 	port = 9999;
-	if (argc == 3) {
-		port = (WORD)atoi(argv[2]);
+	
+	
+	if (argc == 4) {
+		port = (WORD)atoi(argv[3]);
+	}
+	if (argc >= 3) {
+		strncpy(ip, argv[2], 64);
 	}
 	if (argc >= 2) {
-		strncpy(ip, argv[1], 64);
+		pattern = (WORD)atoi(argv[1]);
 	}
-
+	if(pattern<1 || pattern>3){
+		pattern=1;
+	}
+	
 	WSAStartup(MAKEWORD(2, 0), &wsaData);
-
 	s = socket(AF_INET, SOCK_STREAM, 0);
 
 	//*Convert HOST to IP Address**********************************
@@ -239,10 +199,9 @@ int main(int argc, char **argv)
 			close(s);
 			return -1;
 		}
+		localIP = inet_ntoa(*(struct in_addr *)*hent->h_addr_list);
+		p_addr.sin_addr.s_addr = inet_addr(localIP);
 	}
-	localIP = inet_ntoa(*(struct in_addr *)*hent->h_addr_list);
-	p_addr.sin_addr.s_addr = inet_addr(localIP);
-	//p_addr.sin_addr.s_addr=inet_addr(localIP);*(struct in_addr *)hent->h_addr_list[0];
 	p_addr.sin_family = AF_INET;
 	p_addr.sin_port = htons(port);
 	printf("Trying...");
@@ -284,4 +243,3 @@ int main(int argc, char **argv)
 	WSACleanup();
 	return 0;
 }
-
