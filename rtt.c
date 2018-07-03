@@ -100,13 +100,13 @@ void send_data(DWORD type, DWORD len)
 
 void pattern1(void) {
 	int i;
-	printf("’†”²‚¯5•b’†‰º‚èóM‚ ‚è\n");
+	printf("uploading 5sec suspend with downloading\n");
 	send_data(7, 32);//START
 	for (i = 0; i<10; i++) {
 		Sleep(100);
 		send_data(4, 64);
 	}
-	send_data(2,64);//‰º‚èw¦
+	send_data(2,64);//download
 	Sleep(5000);
 	send_data(5, 64);
 	for (i = 0; i<10; i++) {
@@ -117,7 +117,7 @@ void pattern1(void) {
 }
 void pattern2(void) {
 	int i;
-printf("’†”²‚¯5•b’†‰º‚èóM‚È‚µ\n");
+	printf("uploading 5sec suspend without downloading\n");
 	send_data(7, 32);//START
 	for (i = 0; i<10; i++) {
 		Sleep(100);
@@ -134,7 +134,7 @@ printf("’†”²‚¯5•b’†‰º‚èóM‚È‚µ\n");
 
 void pattern3(void) {
 	int i;
-	printf("’†”²‚¯‚È‚µ@100ƒ~ƒŠ•bŠÔŠu\n");
+	printf("50 bidirection packets, 100ms interval\n");
 	send_data(7, 32);//START
 	for (i = 0; i<50; i++) {
 		Sleep(100);
@@ -166,14 +166,14 @@ int main(int argc, char **argv)
 	struct timeval tv;
 	WSADATA wsaData;
 	DWORD timer;
-	
+
 	for (i = 0; i<128; i++) {
 		memset(&memo[i], 0, sizeof(MEMO));
 	}
 	strcpy(ip, "www.olt.link");
 	port = 9999;
-	
-	
+
+
 	if (argc == 4) {
 		port = (WORD)atoi(argv[3]);
 	}
@@ -186,7 +186,7 @@ int main(int argc, char **argv)
 	if(pattern<1 || pattern>3){
 		pattern=1;
 	}
-	
+
 	WSAStartup(MAKEWORD(2, 0), &wsaData);
 	s = socket(AF_INET, SOCK_STREAM, 0);
 
